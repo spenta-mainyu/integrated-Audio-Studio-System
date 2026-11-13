@@ -792,6 +792,14 @@ footer .copyright .dot{opacity:.6;}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
 }
+
+.voice-row{display:flex;gap:8px;align-items:center;}
+.voice-row select{flex:1;min-width:0;}
+.voice-preview-btn{padding:9px 14px;min-width:46px;justify-content:center;flex:0 0 auto;}
+.tts-progress{height:6px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden;margin-top:12px;}
+.tts-progress-bar{height:100%;width:0;background:var(--gold);transition:width .35s ease;}
+.backup-key-row{display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:6px;cursor:pointer;}
+.backup-key-row input{width:auto;}
 </style><script defer src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </head>
 <body>
@@ -909,6 +917,11 @@ footer .copyright .dot{opacity:.6;}
       <div class="card">
         <h2 data-i18n="apikey.h4">پشتیبان‌گیری از تنظیمات</h2>
         <p class="sub" data-i18n="apikey.h4sub">خروجی/ورودی گرفتن از کلید و تنظیمات به‌صورت فایل JSON.</p>
+        <label class="backup-key-row">
+          <input type="checkbox" id="backupIncludeKey">
+          <span data-i18n="apikey.backupIncludeKey">شامل کردن کلید API در فایل پشتیبان</span>
+        </label>
+        <div class="hint" style="margin:0 0 12px;" data-i18n="apikey.backupKeyWarn">پیش‌فرض خاموش است. فایل پشتیبان با کلید به‌صورت متن ساده ذخیره می‌شود؛ آن را برای کسی نفرستید و جای عمومی نگذارید.</div>
         <div class="btn-row">
           <button class="btn" id="exportBackupBtn" data-i18n="apikey.exportBackupBtn">دانلود پشتیبان (JSON)</button>
           <label class="file-label">
@@ -934,6 +947,7 @@ footer .copyright .dot{opacity:.6;}
           <div class="field">
             <label data-i18n="tts.textLabel">متن انگلیسی</label>
             <textarea id="ttsText" placeholder="متن خود را اینجا بنویسید یا جای‌گذاری کنید…" data-i18n-placeholder="tts.textPh"></textarea>
+            <div class="hint" id="ttsCharCount"></div>
           </div>
           <div class="field">
             <label data-i18n="tts.voiceLabel">صدا</label>
@@ -965,8 +979,20 @@ footer .copyright .dot{opacity:.6;}
           <div class="field">
             <label data-i18n="tts.dialogueTextLabel">متن گفتگو</label>
             <textarea id="ttsDialogueText" placeholder="Speaker1: سلام، حالت چطوره؟&#10;Speaker2: عالیم، ممنون! تو چطوری؟" data-i18n-placeholder="tts.dialoguePh"></textarea>
+            <div class="hint" id="ttsDialogueCharCount"></div>
             <div class="hint" data-i18n="tts.dialogueHint">هر خط را دقیقاً با نام گوینده (مطابق فیلدهای بالا) و دونقطه شروع کنید.</div>
           </div>
+        </div>
+
+        <div class="field" id="ttsSpeedField">
+          <label data-i18n="tts.speedLabel">سرعت صدا</label>
+          <select id="ttsSpeedSelect">
+            <option value="very_slow" data-i18n="tts.speedVerySlow">خیلی آهسته</option>
+            <option value="slow" data-i18n="tts.speedSlow">آهسته</option>
+            <option value="normal" selected data-i18n="tts.speedNormal">عادی</option>
+            <option value="fast" data-i18n="tts.speedFast">سریع</option>
+            <option value="very_fast" data-i18n="tts.speedVeryFast">خیلی سریع</option>
+          </select>
         </div>
 
         <div class="btn-row">
@@ -974,6 +1000,7 @@ footer .copyright .dot{opacity:.6;}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>
             <span data-i18n="tts.generateBtn">تولید صدا</span>
           </button>
+          <button class="btn" id="ttsCancelBtn" type="button" style="display:none;" data-i18n="tts.cancelBtn">لغو</button>
           <div class="dropdownWrap">
             <button class="btn" id="ttsDownloadBtn" disabled><span data-i18n="tts.downloadBtn">دانلود فایل صوتی</span> ▾</button>
             <div id="ttsExportMenu" class="dropdown-menu">
@@ -992,6 +1019,7 @@ footer .copyright .dot{opacity:.6;}
             <span data-i18n="tts.toLibraryBtn">افزودن به کتابخانهٔ ویرایشگر</span>
           </button>
         </div>
+        <div class="tts-progress" id="ttsProgress" style="display:none;"><div class="tts-progress-bar" id="ttsProgressBar"></div></div>
         <audio id="ttsAudioPlayer" controls style="display:none;"></audio>
         <div id="ttsStatus"></div>
         <div class="hint" data-i18n="tts.toLibraryHint">با دکمهٔ بالا می‌توانید صدای تولیدشده را مستقیماً به کتابخانهٔ تب «ویرایشگر صوتی» منتقل کنید.</div>
@@ -1188,6 +1216,12 @@ window.I18N_EN = {
   'apikey.exportBackupBtn':'Download Backup (JSON)', 'apikey.importBackupLabel':'Restore From File',
   'tts.h1':'Text-to-Speech Studio',
   'tts.h1sub':'Enter your English text to convert it into a natural-sounding Gemini audio file; for dialogue you can define two speakers with two separate voices.',
+  'tts.cancelBtn':'Cancel', 'tts.cancelled':'Generation cancelled.', 'tts.generatingPart':'Generating part {i} of {n}…', 'tts.joining':'Joining parts…',
+  'tts.charCount':'{n} characters', 'tts.chunkInfo':' — will be generated in {k} parts', 'tts.previewTitle':'Preview this voice',
+  'apikey.backupIncludeKey':'Include the API key in the backup file',
+  'apikey.backupKeyWarn':'Off by default. A backup with the key stores it as plain text; do not send it to anyone or put it anywhere public.',
+  'apikey.backupKeyConfirm':'The backup will contain your API key as plain text. Anyone with the file can use your key. Continue?',
+  'tts.speedLabel':'Voice speed', 'tts.speedVerySlow':'Very slow', 'tts.speedSlow':'Slow', 'tts.speedNormal':'Normal', 'tts.speedFast':'Fast', 'tts.speedVeryFast':'Very fast',
   'tts.modeSingle':'Single speaker', 'tts.modeDialogue':'Two-speaker dialogue',
   'tts.textLabel':'English text', 'tts.voiceLabel':'Voice',
   'tts.speaker1Name':'Speaker 1 name', 'tts.speaker1Voice':'Speaker 1 voice',
@@ -1546,14 +1580,19 @@ wireModelSelect($('#sttModelSelect'), $('#sttModelCustom'), LS_STT_MODEL, 'gemin
 function getTtsModel(){ return (localStorage.getItem(LS_TTS_MODEL) || 'gemini-3.8-flash-tts').trim(); }
 function getSttModel(){ return (localStorage.getItem(LS_STT_MODEL) || 'gemini-3.5-transcribe').trim(); }
 
+var TTS_PREF_KEYS = ['audioStudio_ttsSpeed','audioStudio_ttsVoice','audioStudio_dlg1Voice','audioStudio_dlg2Voice','audioStudio_dlg1Name','audioStudio_dlg2Name','audioStudio_ttsMode'];
 /* backup / restore */
 $('#exportBackupBtn').addEventListener('click', function(){
+  var withKey = $('#backupIncludeKey').checked;
+  if(withKey && !confirm(trs('apikey.backupKeyConfirm','فایل پشتیبان شامل کلید API شما به‌صورت متن ساده خواهد بود و هر کسی که فایل را داشته باشد می‌تواند از کلید شما استفاده کند. ادامه می‌دهید؟'))) return;
   var data = {
-    geminiApiKey: getApiKey(),
     ttsModel: localStorage.getItem(LS_TTS_MODEL) || '',
     sttModel: localStorage.getItem(LS_STT_MODEL) || '',
-    theme: localStorage.getItem(LS_THEME) || 'dark'
+    theme: localStorage.getItem(LS_THEME) || 'dark',
+    ttsPrefs: {}
   };
+  if(withKey) data.geminiApiKey = getApiKey();
+  TTS_PREF_KEYS.forEach(function(k){ var v = localStorage.getItem(k); if(v !== null) data.ttsPrefs[k] = v; });
   var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -1570,6 +1609,7 @@ $('#importBackupInput').addEventListener('change', function(e){
     try{
       var data = JSON.parse(reader.result);
       if(data.geminiApiKey !== undefined){ localStorage.setItem(LS_KEY, data.geminiApiKey); apiKeyInput.value = data.geminiApiKey; }
+      if(data.ttsPrefs && typeof data.ttsPrefs === 'object'){ TTS_PREF_KEYS.forEach(function(k){ if(typeof data.ttsPrefs[k] === 'string') localStorage.setItem(k, data.ttsPrefs[k]); }); }
       if(data.ttsModel){ localStorage.setItem(LS_TTS_MODEL, data.ttsModel); }
       if(data.sttModel){ localStorage.setItem(LS_STT_MODEL, data.sttModel); }
       if(data.theme){ localStorage.setItem(LS_THEME, data.theme); applyTheme(data.theme); }
@@ -1628,7 +1668,27 @@ function parseDialogueTurns(text, speakers){
   return turns.map(function(t){ return { text:t.text, speech_metadata:{ speaker:t.speaker } }; });
 }
 
+function fetchRetry(url, init, tries){
+  tries = tries || 3;
+  return fetch(url, init).then(function(res){
+    if((res.status === 429 || res.status >= 500) && tries > 1){
+      return new Promise(function(r){ setTimeout(r, (4 - tries) * 2000); }).then(function(){ return fetchRetry(url, init, tries - 1); });
+    }
+    return res;
+  }, function(err){
+    if(err && err.name === 'AbortError') throw err;
+    if(tries > 1) return new Promise(function(r){ setTimeout(r, 1500); }).then(function(){ return fetchRetry(url, init, tries - 1); });
+    throw err;
+  });
+}
 function requestGeminiTTS(text, opts){
+  // Gemini TTS occasionally answers without audio; retry once automatically
+  return requestGeminiTTSOnce(text, opts).catch(function(err){
+    if(err && err.noAudio) return requestGeminiTTSOnce(text, opts);
+    throw err;
+  });
+}
+function requestGeminiTTSOnce(text, opts){
   opts = opts || {};
   var apiKey = getApiKey();
   if(!apiKey) return Promise.reject(new Error(trs('err.saveKeyFirst','ابتدا کلید Gemini API را در تب «کلید API» ذخیره کنید.')));
@@ -1653,8 +1713,9 @@ function requestGeminiTTS(text, opts){
   }
   if(!parts) parts = [{ text: text }];
 
-  return fetch(url, {
+  return fetchRetry(url, {
     method:'POST',
+    signal: opts.signal,
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents:[{ role:'user', parts: parts }],
@@ -1670,7 +1731,7 @@ function requestGeminiTTS(text, opts){
       var parts = cand && cand.content && cand.content.parts;
       var part = null;
       if(parts){ for(var i=0;i<parts.length;i++){ if(parts[i].inlineData && parts[i].inlineData.data){ part = parts[i]; break; } } }
-      if(!part) throw new Error(trs('err.noAudioReceived','پاسخی حاوی صدا از مدل Gemini دریافت نشد.'));
+      if(!part){ var ne = new Error(trs('err.noAudioReceived','پاسخی حاوی صدا از مدل Gemini دریافت نشد.')); ne.noAudio = true; throw ne; }
       var mime = part.inlineData.mimeType || 'audio/pcm;rate=24000';
       if(/wav/i.test(mime)){
         // Gemini 3.8 returns a complete WAV (RIFF header included) — use as-is
@@ -1681,6 +1742,94 @@ function requestGeminiTTS(text, opts){
       var rateMatch = /rate=(\d+)/.exec(mime);
       var sampleRate = rateMatch ? parseInt(rateMatch[1],10) : 24000;
       return pcmBase64ToWavBlob(part.inlineData.data, sampleRate);
+    });
+  });
+}
+
+/* ---- Speed control: WSOLA time-stretch (keeps pitch, no text prompt involved) ---- */
+var TTS_SPEED_RATES = { very_slow:0.65, slow:0.82, normal:1, fast:1.25, very_fast:1.5 };
+function wsolaStretch(input, rate, sr){
+  var win = Math.round(sr*0.04); if(win%2) win++;
+  var Hs = win/2, Ha = Hs*rate, tol = Math.round(sr*0.012);
+  var outLen = Math.floor(input.length/rate) + win*2;
+  var out = new Float32Array(outLen), norm = new Float32Array(outLen);
+  var w = new Float32Array(win);
+  for(var n=0;n<win;n++) w[n] = 0.5 - 0.5*Math.cos(2*Math.PI*n/win);
+  var prev = 0;
+  for(var i=0;;i++){
+    var outPos = i*Hs;
+    if(outPos+win > outLen) break;
+    var pos;
+    if(i===0){ pos = 0; }
+    else {
+      var nominal = Math.round(i*Ha), target = prev + Hs;
+      if(target + Hs > input.length) break;
+      var lo = Math.max(0, nominal-tol), hi = Math.min(nominal+tol, input.length-win);
+      if(lo > hi) break;
+      var best = -Infinity; pos = lo;
+      for(var p=lo; p<=hi; p++){
+        var c = 0;
+        for(var k=0;k<Hs;k+=2) c += input[p+k]*input[target+k];
+        if(c > best){ best = c; pos = p; }
+      }
+    }
+    if(pos+win > input.length) break;
+    for(var j=0;j<win;j++){ out[outPos+j] += input[pos+j]*w[j]; norm[outPos+j] += w[j]; }
+    prev = pos;
+  }
+  var finalLen = Math.min(Math.floor(input.length/rate), outLen);
+  var res = new Float32Array(finalLen);
+  for(var m=0;m<finalLen;m++) res[m] = norm[m] > 1e-3 ? out[m]/norm[m] : 0;
+  return res;
+}
+function newDecodeCtx(){
+  var AC = window.AudioContext || window.webkitAudioContext;
+  try{ return new AC({ sampleRate: 24000 }); }catch(e){ return new AC(); }
+}
+function floatChannelsToWavBlob(chs, sr){
+  var ch = chs.length, len = chs[0].length, bytes = new Uint8Array(len*ch*2), dv = new DataView(bytes.buffer);
+  for(var i=0;i<len;i++) for(var c=0;c<ch;c++){
+    var v = Math.max(-1, Math.min(1, chs[c][i]));
+    dv.setInt16((i*ch+c)*2, v<0 ? v*0x8000 : v*0x7FFF, true);
+  }
+  return pcmBytesToWavBlob(bytes, sr, ch);
+}
+// Joins several generated WAV blobs into one file with a short pause between parts
+function concatTtsBlobs(blobs){
+  var ctx = newDecodeCtx();
+  return Promise.all(blobs.map(function(b){
+    return b.arrayBuffer().then(function(buf){ return new Promise(function(res, rej){ ctx.decodeAudioData(buf, res, rej); }); });
+  })).then(function(bufs){
+    try{ ctx.close(); }catch(e){}
+    var sr = bufs[0].sampleRate, ch = bufs[0].numberOfChannels, gap = Math.round(sr*0.35), total = 0;
+    bufs.forEach(function(b){ total += b.length; });
+    total += gap*(bufs.length-1);
+    var chs = []; for(var c=0;c<ch;c++) chs.push(new Float32Array(total));
+    var off = 0;
+    bufs.forEach(function(b){
+      for(var c2=0;c2<ch;c2++) chs[c2].set(b.getChannelData(Math.min(c2, b.numberOfChannels-1)), off);
+      off += b.length + gap;
+    });
+    return floatChannelsToWavBlob(chs, sr);
+  });
+}
+function applyTtsSpeed(blob, speedKey){
+  var rate = TTS_SPEED_RATES[speedKey] || 1;
+  if(rate === 1) return Promise.resolve(blob);
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return Promise.resolve(blob);
+  return blob.arrayBuffer().then(function(buf){
+    var ctx = newDecodeCtx();
+    return new Promise(function(res, rej){ ctx.decodeAudioData(buf, res, rej); }).then(function(ab){
+      try{ ctx.close(); }catch(e){}
+      var sr = ab.sampleRate, ch = ab.numberOfChannels, stretched = [];
+      for(var c=0;c<ch;c++) stretched.push(wsolaStretch(ab.getChannelData(c), rate, sr));
+      var len = stretched[0].length, bytes = new Uint8Array(len*ch*2), dv = new DataView(bytes.buffer);
+      for(var i=0;i<len;i++) for(var c2=0;c2<ch;c2++){
+        var v = Math.max(-1, Math.min(1, stretched[c2][i]));
+        dv.setInt16((i*ch+c2)*2, v<0 ? v*0x8000 : v*0x7FFF, true);
+      }
+      return pcmBytesToWavBlob(bytes, sr, ch);
     });
   });
 }
@@ -1717,7 +1866,7 @@ function requestGeminiSTT(blob, mimeType){
         ]}]
       };
     }
-    return fetch(url, {
+    return fetchRetry(url, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body)
@@ -1762,8 +1911,98 @@ function renderVoiceOptions(){
   dlg2VoiceSelect.value = prevVals[2];
 }
 renderVoiceOptions();
-window.ttsPanelOnLangChange = renderVoiceOptions;
 
+/* --- remembered voice settings --- */
+[ ['audioStudio_ttsVoice', ttsVoiceSelect], ['audioStudio_dlg1Voice', dlg1VoiceSelect], ['audioStudio_dlg2Voice', dlg2VoiceSelect],
+  ['audioStudio_dlg1Name', $('#dlgSpeaker1Name')], ['audioStudio_dlg2Name', $('#dlgSpeaker2Name')] ].forEach(function(pair){
+  try{ var sv = localStorage.getItem(pair[0]); if(sv){ pair[1].value = sv; } }catch(e){}
+  ['change','input'].forEach(function(ev){
+    pair[1].addEventListener(ev, function(){ try{ localStorage.setItem(pair[0], pair[1].value); }catch(e){} });
+  });
+});
+
+/* --- voice preview buttons --- */
+var TTS_PREVIEW_TEXT = 'Hello! This is a quick preview of how my voice sounds.';
+var previewCache = {}, previewAudio = null, previewBtnActive = null;
+function stopPreview(){
+  if(previewAudio){ try{ previewAudio.pause(); }catch(e){} previewAudio = null; }
+  if(previewBtnActive){ previewBtnActive.textContent = '▶'; previewBtnActive = null; }
+}
+function wirePreview(sel){
+  var wrap = document.createElement('div'); wrap.className = 'voice-row';
+  sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel);
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn voice-preview-btn'; b.textContent = '▶';
+  b.setAttribute('data-i18n-title','tts.previewTitle'); b.setAttribute('title','پیش‌شنیدن این صدا');
+  wrap.appendChild(b);
+  b.addEventListener('click', function(){
+    if(previewBtnActive === b){ stopPreview(); return; }
+    stopPreview();
+    var voice = sel.value, key = getTtsModel() + '|' + voice;
+    b.textContent = '…'; b.disabled = true;
+    var get = previewCache[key] ? Promise.resolve(previewCache[key])
+      : requestGeminiTTS(TTS_PREVIEW_TEXT, { voiceName: voice }).then(function(bl){ previewCache[key] = bl; return bl; });
+    get.then(function(bl){
+      b.disabled = false;
+      var a = new Audio(URL.createObjectURL(bl));
+      previewAudio = a; previewBtnActive = b; b.textContent = '■';
+      a.onended = function(){ if(previewAudio === a) stopPreview(); };
+      return a.play();
+    }).catch(function(err){
+      b.disabled = false; b.textContent = '▶'; previewAudio = null; previewBtnActive = null;
+      showToast(err.message || String(err), true);
+    });
+  });
+}
+[ttsVoiceSelect, dlg1VoiceSelect, dlg2VoiceSelect].forEach(wirePreview);
+
+/* --- long text: split into parts + character counter --- */
+var TTS_CHUNK_MAX = 1500;
+function splitTtsText(text, isDialogue){
+  var units;
+  if(isDialogue){
+    units = text.split(/\n+/);
+  } else {
+    units = text.replace(/\n+/g, '\u0001').replace(/([.!?؟۔…]+["'”’)\]]*)\s+/g, '$1\u0001').split('\u0001');
+  }
+  units = units.map(function(u){ return u.trim(); }).filter(Boolean);
+  if(!isDialogue){
+    var pieces = [];
+    units.forEach(function(u){
+      while(u.length > TTS_CHUNK_MAX){
+        var cut = u.lastIndexOf(' ', TTS_CHUNK_MAX); if(cut < TTS_CHUNK_MAX/2) cut = TTS_CHUNK_MAX;
+        pieces.push(u.slice(0, cut).trim()); u = u.slice(cut).trim();
+      }
+      if(u) pieces.push(u);
+    });
+    units = pieces;
+  }
+  var glue = isDialogue ? '\n' : ' ', chunks = [], cur = '';
+  units.forEach(function(u){
+    if(cur && (cur.length + glue.length + u.length) > TTS_CHUNK_MAX){ chunks.push(cur); cur = ''; }
+    cur = cur ? cur + glue + u : u;
+  });
+  if(cur) chunks.push(cur);
+  return chunks.length ? chunks : [text];
+}
+function updateTtsCounts(){
+  [['#ttsText','#ttsCharCount',false], ['#ttsDialogueText','#ttsDialogueCharCount',true]].forEach(function(c){
+    var v = $(c[0]).value, n = v.trim().length;
+    var msg = trsf('tts.charCount', '{n} کاراکتر', { n: n.toLocaleString(window.currentLang === 'en' ? 'en-US' : 'fa-IR') });
+    if(n > TTS_CHUNK_MAX){ msg += trsf('tts.chunkInfo', ' — در {k} بخش تولید می‌شود', { k: splitTtsText(v.trim(), c[2]).length }); }
+    $(c[1]).textContent = msg;
+  });
+}
+$('#ttsText').addEventListener('input', updateTtsCounts);
+$('#ttsDialogueText').addEventListener('input', updateTtsCounts);
+updateTtsCounts();
+window.ttsPanelOnLangChange = function(){ renderVoiceOptions(); updateTtsCounts(); };
+
+(function(){
+  var sel = document.getElementById('ttsSpeedSelect');
+  try{ var sv = localStorage.getItem('audioStudio_ttsSpeed'); if(sv) sel.value = sv; }catch(e){}
+  sel.addEventListener('change', function(){ try{ localStorage.setItem('audioStudio_ttsSpeed', sel.value); }catch(e){} });
+})();
 var ttsMode = 'single';
 $all('#ttsModeSeg button').forEach(function(btn){
   btn.addEventListener('click', function(){
@@ -1772,30 +2011,56 @@ $all('#ttsModeSeg button').forEach(function(btn){
     btn.classList.add('active');
     $('#ttsSingleBlock').style.display = ttsMode === 'single' ? 'block' : 'none';
     $('#ttsDialogueBlock').style.display = ttsMode === 'dialogue' ? 'block' : 'none';
+    try{ localStorage.setItem('audioStudio_ttsMode', ttsMode); }catch(e){}
   });
 });
+try{ if(localStorage.getItem('audioStudio_ttsMode') === 'dialogue'){ var dlgBtn = document.querySelector('#ttsModeSeg button[data-mode="dialogue"]'); if(dlgBtn) dlgBtn.click(); } }catch(e){}
 
-var ttsBlob = null;
+var ttsBlob = null, ttsAbort = null;
 $('#ttsGenerateBtn').addEventListener('click', function(){
   var text, opts;
   if(ttsMode === 'single'){
     text = $('#ttsText').value.trim();
     if(!text){ showToast(trs('toast.enterTextFirst','ابتدا متنی وارد کنید.'), true); return; }
-    opts = { voiceName: ttsVoiceSelect.value };
+    opts = { voiceName: ttsVoiceSelect.value, speed: $('#ttsSpeedSelect').value };
   } else {
     text = $('#ttsDialogueText').value.trim();
     if(!text){ showToast(trs('toast.enterDialogueFirst','ابتدا متن گفتگو را وارد کنید.'), true); return; }
     var n1 = $('#dlgSpeaker1Name').value.trim() || 'Speaker1';
     var n2 = $('#dlgSpeaker2Name').value.trim() || 'Speaker2';
-    opts = { speakers: [
+    opts = { speed: $('#ttsSpeedSelect').value, speakers: [
       { speaker: n1, voiceName: dlg1VoiceSelect.value },
       { speaker: n2, voiceName: dlg2VoiceSelect.value }
     ] };
   }
-  var btn = $('#ttsGenerateBtn');
+  var btn = $('#ttsGenerateBtn'), cancelBtn = $('#ttsCancelBtn');
+  var progress = $('#ttsProgress'), bar = $('#ttsProgressBar');
+  var chunks = splitTtsText(text, ttsMode === 'dialogue');
+  var speedKey = $('#ttsSpeedSelect').value;
+  var abortCtl = new AbortController();
+  ttsAbort = abortCtl; opts.signal = abortCtl.signal;
   btn.setAttribute('disabled','disabled');
-  $('#ttsStatus').innerHTML = '<div class="status-line"><svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/></svg> '+trs('tts.generating','در حال تولید صدا…')+'</div>';
-  requestGeminiTTS(text, opts).then(function(blob){
+  cancelBtn.style.display = ''; progress.style.display = chunks.length > 1 ? 'block' : 'none'; bar.style.width = '0%';
+  var spin = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/></svg> ';
+  function setStatus(msg){ $('#ttsStatus').innerHTML = '<div class="status-line">' + spin + escapeHtml(msg) + '</div>'; }
+  setStatus(chunks.length > 1 ? trsf('tts.generatingPart','در حال تولید بخش {i} از {n}…',{i:1,n:chunks.length}) : trs('tts.generating','در حال تولید صدا…'));
+
+  var blobs = [], chain = Promise.resolve();
+  chunks.forEach(function(chunk, idx){
+    chain = chain.then(function(){
+      if(chunks.length > 1){
+        setStatus(trsf('tts.generatingPart','در حال تولید بخش {i} از {n}…',{i:idx+1,n:chunks.length}));
+        bar.style.width = Math.round(idx/chunks.length*100) + '%';
+      }
+      return requestGeminiTTS(chunk, opts).then(function(b){ blobs.push(b); });
+    });
+  });
+  chain.then(function(){
+    if(chunks.length > 1){ bar.style.width = '100%'; setStatus(trs('tts.joining','در حال اتصال بخش‌ها…')); return concatTtsBlobs(blobs); }
+    return blobs[0];
+  }).then(function(blob){
+    return applyTtsSpeed(blob, speedKey).catch(function(){ return blob; });
+  }).then(function(blob){
     ttsBlob = blob;
     var url = URL.createObjectURL(blob);
     var player = $('#ttsAudioPlayer');
@@ -1804,10 +2069,18 @@ $('#ttsGenerateBtn').addEventListener('click', function(){
     $('#ttsToLibraryBtn').removeAttribute('disabled');
     $('#ttsStatus').innerHTML = '<div class="status-line ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> '+trs('tts.done','صدا با موفقیت تولید شد.')+'</div>';
   }).catch(function(err){
-    $('#ttsStatus').innerHTML = '<div class="status-line bad">'+ err.message +'</div>';
+    if(err && err.name === 'AbortError'){
+      $('#ttsStatus').innerHTML = '<div class="status-line">' + escapeHtml(trs('tts.cancelled','تولید صدا لغو شد.')) + '</div>';
+      return;
+    }
+    $('#ttsStatus').innerHTML = '<div class="status-line bad">'+ escapeHtml(err.message) +'</div>';
     showToast(err.message, true);
-  }).then(function(){ btn.removeAttribute('disabled'); });
+  }).then(function(){
+    btn.removeAttribute('disabled'); cancelBtn.style.display = 'none'; progress.style.display = 'none';
+    if(ttsAbort === abortCtl) ttsAbort = null;
+  });
 });
+$('#ttsCancelBtn').addEventListener('click', function(){ if(ttsAbort) ttsAbort.abort(); });
 var ttsExportMenu = document.getElementById('ttsExportMenu');
 document.getElementById('ttsDownloadBtn').addEventListener('click', function(e){
   if(!ttsBlob) return;
@@ -1882,7 +2155,7 @@ $('#sttTranscribeBtn').addEventListener('click', function(){
     $('#sttDownloadBtn').removeAttribute('disabled');
     $('#sttStatus').innerHTML = '<div class="status-line ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> '+trs('stt.done','متن با موفقیت استخراج شد.')+'</div>';
   }).catch(function(err){
-    $('#sttStatus').innerHTML = '<div class="status-line bad">'+ err.message +'</div>';
+    $('#sttStatus').innerHTML = '<div class="status-line bad">'+ escapeHtml(err.message) +'</div>';
     showToast(err.message, true);
   }).then(function(){ btn.removeAttribute('disabled'); });
 });
@@ -3301,7 +3574,8 @@ async function renderLibrary(){
   list.innerHTML = items.length? '' : '<p style="color:var(--text-dim);font-size:12px;">'+trs('editor.lib.empty','کتابخانه خالی است.')+'</p>';
   items.forEach(item=>{
     const div=document.createElement('div'); div.className='library-item';
-    div.innerHTML=`<span class="lib-name" title="${item.name}">${item.name}</span>
+    const safeName=String(item.name).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    div.innerHTML=`<span class="lib-name" title="${safeName}">${safeName}</span>
       <button class="lib-play">▶</button><button class="lib-insert">➕</button><button class="lib-download" title="${trs('editor.lib.dlTitle','دانلود با فرمت دلخواه')}">⬇</button><button class="lib-delete">🗑</button>`;
     const playBtn = div.querySelector('.lib-play');
     playBtn.onclick=async ()=>{
